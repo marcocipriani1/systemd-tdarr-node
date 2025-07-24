@@ -1,0 +1,56 @@
+[Unit]
+Description=Tdarr Node Container
+After=network.target
+
+[Service]
+Type=exec
+Restart=always
+RestartSec=10
+TimeoutStartSec=300
+
+# Clean up any existing container before start
+ExecStartPre=-/usr/bin/podman rm -f tdarr-node
+
+# Start the container
+ExecStart=/usr/bin/podman run --name tdarr-node \
+  --runtime=nvidia \
+  --rm \
+  --network bridge \
+  --env TZ=Europe/Rome \
+  --env PUID=1000 \
+  --env PGID=1000 \
+  --env UMASK_SET=002 \
+  --env nodeName=Workstation \
+  --env serverIP=10.212.50.2 \
+  --env serverPort=8266 \
+  --env inContainer=true \
+  --env ffmpegVersion=7 \
+  --env nodeType=mapped \
+  --env priority=-1 \
+  --env cronPluginUpdate="" \
+  --env apiKey="" \
+  --env maxLogSizeMB=10 \
+  --env pollInterval=2000 \
+  --env startPaused=false \
+  --env transcodegpuWorkers=12 \
+  --env transcodecpuWorkers=0 \
+  --env healthcheckgpuWorkers=0 \
+  --env healthcheckcpuWorkers=4 \
+  --env NVIDIA_DRIVER_CAPABILITIES=all \
+  --env NVIDIA_VISIBLE_DEVICES=all \
+  --device /dev/dri:/dev/dri \
+  --device /dev/nvidiactl \
+  --device /dev/nvidia-uvm \
+  --device /dev/nvidia0 \
+  --device /dev/nvidia-modeset \
+  --volume /srv/tdarr/configs:/app/configs:rw \
+  --volume /srv/tdarr/logs:/app/logs:rw \
+  --volume /media:/media:rw \
+  --volume /tmp/transcode_cache:/transcode_cache:rw \
+  ghcr.io/haveagitgat/tdarr_node:latest
+
+# Stop is handled by --rm flag
+ExecStop=/usr/bin/podman stop tdarr-node
+
+[Install]
+WantedBy=multi-user.target
