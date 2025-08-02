@@ -3,7 +3,6 @@ Description=Tdarr Node Container
 After=network.target
 
 [Service]
-Type=exec
 Restart=always
 RestartSec=10
 TimeoutStartSec=300
@@ -14,9 +13,8 @@ ExecStartPre=-/usr/bin/podman rm -f tdarr-node
 # Start the container
 ExecStart=/usr/bin/podman run --name tdarr-node \
   --runtime=nvidia \
-  --rm \
   --network bridge \
-  --env TZ=Europe/Rome \
+  --env TZ=Etc/UTC \
   --env PUID=1000 \
   --env PGID=1000 \
   --env UMASK_SET=002 \
@@ -49,7 +47,7 @@ ExecStart=/usr/bin/podman run --name tdarr-node \
   --volume /tmp/transcode_cache:/transcode_cache:rw \
   ghcr.io/haveagitgat/tdarr_node:latest
 
-# Stop is handled by --rm flag
+# Stop the container
 ExecStop=/usr/bin/podman stop tdarr-node
 
 [Install]
