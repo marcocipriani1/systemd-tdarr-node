@@ -4,7 +4,7 @@ This systemd service file runs a Tdarr Node container using Podman with GPU acce
 
 ## What This Does
 
-Tdarr Node is a distributed transcoding system that processes media files according to rules defined on a Tdarr Server. This service:
+Tdarr Node is a distributed transcoding system that processes media files according to rules defined on a Tdarr Server,. This service:
 
 - Runs a Tdarr Node container that connects to a central Tdarr Server
 - Provides GPU acceleration using NVIDIA hardware
@@ -12,36 +12,39 @@ Tdarr Node is a distributed transcoding system that processes media files accord
 - Manages container lifecycle through systemd
 - Handles media transcoding tasks distributed from the server
 
+[Note: Tdarr is developed by HaveAGitGat](https://github.com/HaveAGitGat) This project only provides a Podman systemd unit for running Tdarr Node.
+
+## Why Use This Podman Systemd unit?
+
+- Designed for systems where Docker causes networking issues with VM bridges
+- Suitable for setups without a dedicated GPU installed on the media server
+
 ## Prerequisites
 
 - Podman installed and configured
 - NVIDIA GPU with drivers installed
-- NVIDIA Container Toolkit configured for Podman
+- [NVIDIA Container Toolkit configured](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) for [Podman](https://podman-desktop.io/docs/podman/gpu)
 - Access to a running Tdarr Server instance
 - Proper directory structure created
 
 ## Directory Structure
 
-Before deploying, ensure these directories exist:
+Before deploying, ensure these directories exist or choose your own:
 
 ```bash
 sudo mkdir -p /srv/tdarr/configs
 sudo mkdir -p /srv/tdarr/logs
 sudo mkdir -p /media
-sudo mkdir -p /tmp/transcode_cache
+sudo mkdir -p /srv/tdarr/transcode_cache
 ```
 
 Set appropriate permissions:
 ```bash
 sudo chown -R 1000:1000 /srv/tdarr/
-sudo chown -R 1000:1000 /tmp/transcode_cache
+sudo chown -R 1000:1000 /srv/tdarr/transcode_cache
 ```
 
 ## Configuration
-
-### Required Changes
-
-Edit the service file and modify these key variables:
 
 #### Network Configuration
 - `serverIP={server-ip}` - IP address of your Tdarr Server
@@ -49,30 +52,35 @@ Edit the service file and modify these key variables:
 
 #### Node Identity
 - `nodeName={your-nodename}` - Unique name for this node
-- `apiKey=""` - API key from your Tdarr Server (if authentication enabled)
 
 #### Resource Allocation
-- `transcodegpuWorkers=3` - Number of GPU transcoding workers
+- `transcodegpuWorkers=3` - Number of GPU transcoding workers (Max 3 if you don't use a professional grade gpu or the Nvidia patch)
 - `transcodecpuWorkers=0` - Number of CPU transcoding workers
 - `healthcheckgpuWorkers=0` - GPU workers for health checks
-- `healthcheckcpuWorkers=2` - CPU workers for health checks
+- `healthcheckcpuWorkers=4` - CPU workers for health checks
 
 #### User Configuration
 - `PUID=1000` - User ID for file permissions
 - `PGID=1000` - Group ID for file permissions
 - `TZ=Europe/Rome` - Timezone setting
 
+#### Config File
+Edit `/srv/tdarr/configs/Tdarr_Node_Config.json`:
+- Add folder mappings
+- Copy remaining settings from the systemd unit
+
 ### Volume Mounts
 
-Configure these paths according to your setup:
+You can reconfigure these paths according to your setup:
 
 - `/srv/tdarr/configs:/app/configs:rw` - Tdarr configuration files
 - `/srv/tdarr/logs:/app/logs:rw` - Log files
 - `/media:/media:rw` - Media files location
-- `/tmp/transcode_cache:/transcode_cache:rw` - Temporary transcoding cache
+- `/srv/tdarr/transcode-cache:/temp:rw` - Temporary transcoding cache
 
 ### Optional Settings
 
+- `ExecStartPre=/bin/sleep 60` - Delay the start of the Tdarr Node service by 60 seconds to ensure that all network mounts, remove if you use a local dir
 - `priority=-1` - Node priority (-1 to 10, lower = higher priority)
 - `pollInterval=2000` - How often to check for new jobs (milliseconds)
 - `startPaused=false` - Whether to start the node in paused state
@@ -81,25 +89,20 @@ Configure these paths according to your setup:
 
 ## Installation
 
-1. **Save the service file**
-   ```bash
-   sudo cp tdarr-node.service /etc/systemd/system/
-   ```
+1. **Copy the service file**
+```bash
+sudo cp tdarr-node.service /etc/systemd/system/
+```
 
 2. **Reload systemd daemon**
-   ```bash
-   sudo systemctl daemon-reload
-   ```
+```bash
+sudo systemctl daemon-reload
+```
 
 3. **Enable the service**
-   ```bash
-   sudo systemctl enable tdarr-node.service
-   ```
-
-4. **Start the service**
-   ```bash
-   sudo systemctl start tdarr-node.service
-   ```
+```bash
+sudo systemctl enable --now tdarr-node.service
+```
 
 ## Management Commands
 
@@ -110,7 +113,7 @@ sudo systemctl status tdarr-node.service
 
 ### View logs
 ```bash
-sudo journalctl -u tdarr-node.service -f
+sudo journalctl -u tdarr-node -b --no-pager
 ```
 
 ### Stop the service
@@ -128,57 +131,28 @@ sudo systemctl restart tdarr-node.service
 sudo systemctl disable tdarr-node.service
 ```
 
-## GPU Requirements
+## Uninstall
 
-This configuration requires:
-- NVIDIA GPU with proper drivers
-- NVIDIA Container Toolkit installed
-- Podman configured for GPU access
-
-### Verify GPU Access
+1. **Stop the service**
 ```bash
-podman run --rm --runtime=nvidia --env NVIDIA_VISIBLE_DEVICES=all nvidia/cuda:11.0-base nvidia-smi
+sudo systemctl stop tdarr-node.service
 ```
 
-## Troubleshooting
-
-### Common Issues
-
-1. **Container fails to start**
-   - Check if directories exist and have proper permissions
-   - Verify NVIDIA drivers and container toolkit installation
-   - Ensure Tdarr Server is accessible
-
-2. **GPU not detected**
-   - Verify NVIDIA runtime configuration
-   - Check device permissions
-   - Ensure NVIDIA Container Toolkit is properly configured
-
-3. **Permission errors**
-   - Verify PUID/PGID settings match your user
-   - Check directory ownership and permissions
-
-4. **Cannot connect to server**
-   - Verify serverIP and serverPort settings
-   - Check network connectivity
-   - Ensure firewall allows communication
-
-### Log Analysis
+2. **Disable the service**
 ```bash
-# View service logs
-sudo journalctl -u tdarr-node.service --since "1 hour ago"
+sudo systemctl disable tdarr-node.service
+```
 
-# View container logs
-sudo podman logs tdarr-node
+3. **Delete the service file**
+```bash
+sudo rm /etc/systemd/system/tdarr-node.service
+```
+
+4. **Delete tdarr-node container**
+```bash
+sudo podman rm tdarr-node
 ```
 
 ## Security Considerations
 
 - Consider using API key authentication for server communication
-
-## Performance Tuning
-
-- Adjust worker counts based on your hardware capabilities
-- Monitor GPU/CPU usage and adjust accordingly
-- Use fast storage for transcode cache
-- Consider network bandwidth when setting worker counts
