@@ -1,53 +1,40 @@
 [Unit]
-Description=Tdarr Node Container
+Description=Tdarr Node
 After=network.target
 
 [Service]
+Type=simple
 Restart=always
 RestartSec=10
-TimeoutStartSec=300
-
-# Clean up any existing container before start
+ExecStartPre=/bin/sleep 60
 ExecStartPre=-/usr/bin/podman rm -f tdarr-node
-
-# Start the container
 ExecStart=/usr/bin/podman run --name tdarr-node \
-  --runtime=nvidia \
-  --network bridge \
-  --env TZ=Etc/UTC \
-  --env PUID=1000 \
-  --env PGID=1000 \
-  --env UMASK_SET=002 \
-  --env nodeName=Workstation \
-  --env serverIP=10.212.50.2 \
-  --env serverPort=8266 \
-  --env inContainer=true \
-  --env ffmpegVersion=7 \
-  --env nodeType=mapped \
-  --env priority=-1 \
-  --env cronPluginUpdate="" \
-  --env apiKey="" \
-  --env maxLogSizeMB=10 \
-  --env pollInterval=2000 \
-  --env startPaused=false \
-  --env transcodegpuWorkers=12 \
-  --env transcodecpuWorkers=0 \
-  --env healthcheckgpuWorkers=0 \
-  --env healthcheckcpuWorkers=4 \
-  --env NVIDIA_DRIVER_CAPABILITIES=all \
-  --env NVIDIA_VISIBLE_DEVICES=all \
-  --device /dev/dri:/dev/dri \
-  --device /dev/nvidiactl \
-  --device /dev/nvidia-uvm \
-  --device /dev/nvidia0 \
-  --device /dev/nvidia-modeset \
-  --volume /srv/tdarr/configs:/app/configs:rw \
-  --volume /srv/tdarr/logs:/app/logs:rw \
-  --volume /media:/media:rw \
-  --volume /tmp/transcode_cache:/transcode_cache:rw \
+  --network bridge\
+  -e TZ=Europe/Rome \
+  -e PUID=1000 -e PGID=1000 \
+  -e UMASK_SET=002 \
+  -e nodeName=Workstation \
+  -e serverIP=10.212.50.2 \
+  -e serverPort=8266 \
+  -e inContainer=true \
+  -e ffmpegVersion=7 \
+  -e nodeType=mapped \
+  -e priority=-1 \
+  -e maxLogSizeMB=10 \
+  -e pollInterval=2000 \
+  -e startPaused=false \
+  -e transcodegpuWorkers=3 \
+  -e transcodecpuWorkers=0 \
+  -e healthcheckgpuWorkers=0 \
+  -e healthcheckcpuWorkers=4 \
+  -e NVIDIA_DRIVER_CAPABILITIES=all \
+  -e NVIDIA_VISIBLE_DEVICES=all \
+  --gpus=all \
+  -v /srv/tdarr/configs:/app/configs \
+  -v /srv/tdarr/logs:/app/logs \
+  -v /media:/media \
+  -v /srv/tdarr/transcode-cache:/temp \
   ghcr.io/haveagitgat/tdarr_node:latest
-
-# Stop the container
 ExecStop=/usr/bin/podman stop tdarr-node
 
 [Install]
